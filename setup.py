@@ -11,7 +11,7 @@ setup(
     classifiers=['Programming Language :: Python :: 3 :: Only'],
     py_modules=['tap_selligent'],
     install_requires=[
-        'singer-python==1.5.2',
+        'singer-python==1.8.1',
         'backoff==1.3.2',
         'requests==2.12.4',
         'python-dateutil==2.6.0'

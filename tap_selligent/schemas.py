@@ -3,7 +3,7 @@ campaign = {
     'properties': {
         'asset_id': {'type': 'integer'},
         'asset_name': {'type': 'string'},
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
         'version_number': {'type': 'integer'},
     }
 }
@@ -14,7 +14,7 @@ owner = {
         'asset_id': {'type': 'integer'},
         'first_name': {'type': 'string'},
         'last_name': {'type': 'string'},
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
     }
 }
 
@@ -33,7 +33,7 @@ transactional_mailing = {
         'mailing_priority': {'type': 'string'},
         'mailing_server_group': {'type': 'string'},
         'mailing_status': {'type': 'string'},
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
         'owner': owner,
         'target': {
             'type': ['object', 'null'],
@@ -63,7 +63,7 @@ internal_datasource = {
                 'num_total_rec': {'type': 'integer'}
             }
         },
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
         'owner': owner,
         'version_number': {'type': 'integer'}
     }
@@ -78,7 +78,7 @@ source = {
         'asset_name': {'type': 'string'},
         'data_source_type': {'type': 'string'},
         'version_number': {'type': 'integer'},
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
     }
 }
 
@@ -92,7 +92,7 @@ program = {
         'asset_name': {'type': 'string'},
         'asset_url': {'type': 'string'},
         'campaign': campaign,
-        'modified_time': {'type': 'string', 'format': 'date-time'},
+        'modified_time': {'type': 'string'},
         'owner': owner,
         'primary_source': source,
         'program_data_source': source,
