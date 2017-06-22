@@ -24,7 +24,7 @@ This tap:
     > pip install .
     ```
 
-2. Get credentials from Taboola:
+2. Get credentials from Selligent:
 
     You'll need:
 
