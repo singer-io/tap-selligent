@@ -19,9 +19,7 @@ This tap:
 1. Install
 
     ```bash
-    > git clone git@github.com:fishtown-analytics/tap-selligent.git
-    > cd tap-selligent
-    > pip install .
+    > pip install tap-selligent
     ```
 
 2. Get credentials from Selligent:
@@ -51,4 +49,4 @@ This tap:
 
 ---
 
-Copyright &copy; 2017 Fishtown Analytics
+Copyright &copy; 2017 Stitch
