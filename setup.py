@@ -13,7 +13,7 @@ setup(
     install_requires=[
         'singer-python==1.8.1',
         'backoff==1.3.2',
-        'requests==2.20.0',
+        'requests==2.31.0',
         'python-dateutil==2.6.0'
     ],
     entry_points='''
