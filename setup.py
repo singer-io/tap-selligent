@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='tap-selligent',
-    version='0.0.2',
+    version='0.0.3',
     description='Singer.io tap for extracting data from the Selligent API',
     author='Stitch',
     url='http://singer.io',
