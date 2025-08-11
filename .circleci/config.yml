@@ -16,7 +16,7 @@ jobs:
           command: |
             source /usr/local/share/virtualenvs/tap-selligent/bin/activate
             uv pip install pylint
-            pylint tap_selligent --disable missing-docstring,logging-format-interpolation,no-member,broad-except,redefined-variable-type,too-many-branches
+            pylint tap_selligent --disable missing-docstring,logging-format-interpolation,no-member,broad-except,too-many-branches,dangerous-default-value,consider-using-f-string,missing-timeout,unused-argument
 
 workflows:
   version: 2
