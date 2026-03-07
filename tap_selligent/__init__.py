@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from urllib.parse import urljoin, urlparse
 
 import requests
 import singer
@@ -12,32 +13,85 @@ import tap_selligent.schemas
 logger = singer.get_logger()
 
 BASE_URL = 'https://backstage.taboola.com'
+DEFAULT_MAX_REDIRECTS = 3
+
+
+def is_same_origin(source_url, target_url):
+    source = urlparse(source_url)
+    target = urlparse(target_url)
+
+    return (source.scheme, source.hostname, source.port) == \
+        (target.scheme, target.hostname, target.port)
 
 
 def request(url, config, params={}):
     user_agent = config['user_agent']
     api_key = config['api_key']
     organization = config['organization']
-
-    logger.info("Making request: GET {} {}".format(url, params))
+    max_redirects = config.get('max_redirects', DEFAULT_MAX_REDIRECTS)
 
     try:
-        response = requests.get(
-            url,
-            headers={'Authorization': api_key,
-                     'X-Organization': organization,
-                     'Accept': 'application/json',
-                     'User-Agent': user_agent},
-            params=params)
+        max_redirects = int(max_redirects)
+    except (TypeError, ValueError):
+        logger.fatal("Config value max_redirects must be an integer")
+        raise RuntimeError
 
-    except BaseException as e:
-        logger.exception(e)
-        raise e
+    if max_redirects < 0:
+        logger.fatal("Config value max_redirects must be >= 0")
+        raise RuntimeError
 
-    logger.info("Got response code: {}".format(response.status_code))
+    request_url = url
+    request_params = params
+    redirect_count = 0
 
-    response.raise_for_status()
-    return response
+    while True:
+        logger.info("Making request: GET {} {}".format(request_url, request_params))
+
+        try:
+            response = requests.get(
+                request_url,
+                headers={'Authorization': api_key,
+                         'X-Organization': organization,
+                         'Accept': 'application/json',
+                         'User-Agent': user_agent},
+                params=request_params,
+                allow_redirects=False)
+
+        except BaseException as e:
+            logger.exception(e)
+            raise e
+
+        logger.info("Got response code: {}".format(response.status_code))
+
+        if response.is_redirect:
+            redirect_target = response.headers.get('Location', '')
+            redirected_url = urljoin(request_url, redirect_target)
+
+            if not redirect_target:
+                logger.fatal("Blocked redirect response without Location header for URL {}"
+                             .format(request_url))
+                raise RuntimeError
+
+            if not is_same_origin(url, redirected_url):
+                logger.fatal("Blocked cross-origin redirect response for URL {} to {}"
+                             .format(request_url, redirected_url))
+                raise RuntimeError
+
+            if redirect_count >= max_redirects:
+                logger.fatal("Blocked redirect chain after {} redirects for URL {}"
+                             .format(redirect_count, url))
+                raise RuntimeError
+
+            redirect_count += 1
+            logger.info("Following redirect {} of {}: {}"
+                        .format(redirect_count, max_redirects, redirected_url))
+
+            request_url = redirected_url
+            request_params = {}
+            continue
+
+        response.raise_for_status()
+        return response
 
 
 def fetch_transactional_mailings(config, state):
