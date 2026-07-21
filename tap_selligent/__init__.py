@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import ipaddress
 import json
+import socket
+from urllib.parse import urlparse
 
 import requests
 import singer
@@ -14,12 +17,39 @@ logger = singer.get_logger()
 BASE_URL = 'https://backstage.taboola.com'
 
 
+def _assert_public_host(url):
+    """Reject URLs whose host resolves to a non-public (internal/link-local) address.
+
+    ``base_url`` is user-supplied, so without this guard the tap can be pointed at
+    internal endpoints such as the cloud instance-metadata service (169.254.169.254).
+    """
+    host = urlparse(url).hostname
+    if not host:
+        raise ValueError(
+            "Invalid base_url: could not parse a host from {}".format(url))
+
+    try:
+        addrinfo = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise ValueError("Could not resolve host {}: {}".format(host, e))
+
+    for _family, _type, _proto, _canon, sockaddr in addrinfo:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if any([ip.is_private, ip.is_loopback, ip.is_link_local,
+                ip.is_reserved, ip.is_multicast, ip.is_unspecified]):
+            raise ValueError(
+                "Refusing to connect to non-public address {} for host {}"
+                .format(ip, host))
+
+
 def request(url, config, params={}):
     user_agent = config['user_agent']
     api_key = config['api_key']
     organization = config['organization']
 
     logger.info("Making request: GET {} {}".format(url, params))
+
+    _assert_public_host(url)
 
     try:
         response = requests.get(
@@ -28,13 +58,22 @@ def request(url, config, params={}):
                      'X-Organization': organization,
                      'Accept': 'application/json',
                      'User-Agent': user_agent},
-            params=params)
+            params=params,
+            allow_redirects=False)
 
     except BaseException as e:
         logger.exception(e)
         raise e
 
     logger.info("Got response code: {}".format(response.status_code))
+
+    # Redirects are not followed (allow_redirects=False) to prevent SSRF via a
+    # redirect to an internal address. raise_for_status() ignores 3xx, so reject
+    # it explicitly rather than letting response.json() fail on the redirect body.
+    if 300 <= response.status_code < 400:
+        raise RuntimeError(
+            "Refusing to follow redirect from {} to {}"
+            .format(url, response.headers.get('Location')))
 
     response.raise_for_status()
     return response
