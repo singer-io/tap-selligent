@@ -1,17 +1,13 @@
-"""Tests for the SSRF protections in tap_selligent.
+"""Tests for the redirect SSRF protection in tap_selligent.request().
 
-Covers the two pieces added to defend against the Bugcrowd-reported SSRF:
+``request`` does not follow redirects (``allow_redirects=False`` plus an explicit
+3xx rejection), so an attacker-controlled ``base_url`` cannot redirect the tap to
+an internal address. base_url internal-IP validation is handled upstream by
+connections-service, so it is not re-tested here.
 
-  * ``_assert_public_host`` — rejects hosts that resolve to internal/link-local
-    addresses (the metadata endpoint, RFC1918, loopback, ...).
-  * ``request`` — does not follow redirects (``allow_redirects=False`` plus an
-    explicit 3xx rejection) and refuses to issue any request when the guard trips.
-
-No network or live server is used: ``requests.get`` is patched, and only literal
-IPs (which ``socket.getaddrinfo`` resolves without DNS) are used for the guard.
+No network or live server is used: ``requests.get`` is patched.
 """
 
-import socket
 import unittest
 from unittest import mock
 
@@ -38,65 +34,8 @@ def make_response(status_code, headers=None, json_body=None):
     return resp
 
 
-class AssertPublicHostTest(unittest.TestCase):
-    """_assert_public_host: which destinations are allowed vs blocked."""
-
-    def assert_blocked(self, url):
-        with self.assertRaises(ValueError):
-            t._assert_public_host(url)
-
-    def test_blocks_link_local_metadata_ip(self):
-        # The exact address from the Bugcrowd report.
-        self.assert_blocked("http://169.254.169.254/latest/meta-data/")
-
-    def test_blocks_loopback(self):
-        self.assert_blocked("http://127.0.0.1/sm/rest/v1/x/")
-
-    def test_blocks_private_rfc1918(self):
-        self.assert_blocked("http://10.0.0.1/x")
-        self.assert_blocked("http://192.168.1.1/x")
-        self.assert_blocked("http://172.16.0.1/x")
-
-    def test_blocks_ipv6_loopback(self):
-        self.assert_blocked("http://[::1]/x")
-
-    def test_blocks_unspecified(self):
-        self.assert_blocked("http://0.0.0.0/x")
-
-    def test_allows_public_literal_ip(self):
-        # Should not raise.
-        t._assert_public_host("http://8.8.8.8/sm/rest/v1/x/")
-
-    def test_rejects_url_without_host(self):
-        self.assert_blocked("not-a-url")
-
-    def test_rejects_unresolvable_host(self):
-        with mock.patch("tap_selligent.socket.getaddrinfo",
-                        side_effect=socket.gaierror("no such host")):
-            self.assert_blocked("http://does-not-resolve.example/x")
-
-    def test_blocks_public_hostname_resolving_to_internal(self):
-        # A public-looking hostname whose DNS answer is an internal IP is still
-        # blocked. (The residual DNS-rebinding gap is the *second* resolution
-        # done by requests at connect time, which is out of scope.)
-        internal = [(socket.AF_INET, socket.SOCK_STREAM, 6, "",
-                     ("169.254.169.254", 0))]
-        with mock.patch("tap_selligent.socket.getaddrinfo", return_value=internal):
-            self.assert_blocked("http://sneaky.example.com/x")
-
-
 class RequestRedirectTest(unittest.TestCase):
-    """request(): redirect handling and the allow_redirects=False contract.
-
-    The host guard is patched to a no-op here so we exercise the redirect logic
-    in isolation (see GuardBeforeRequestTest for the guard-integration case).
-    """
-
-    def setUp(self):
-        guard_patcher = mock.patch("tap_selligent._assert_public_host",
-                                   return_value=None)
-        self.mock_guard = guard_patcher.start()
-        self.addCleanup(guard_patcher.stop)
+    """request(): redirect handling and the allow_redirects=False contract."""
 
     def test_get_is_called_with_allow_redirects_false(self):
         with mock.patch("tap_selligent.requests.get",
@@ -133,17 +72,6 @@ class RequestRedirectTest(unittest.TestCase):
         with mock.patch("tap_selligent.requests.get", return_value=resp):
             with self.assertRaises(requests.exceptions.HTTPError):
                 t.request("https://api.example.com/sm/rest/v1/x/", CONFIG)
-
-
-class GuardBeforeRequestTest(unittest.TestCase):
-    """The guard runs before any network call, so an internal base_url never
-    results in an outbound request."""
-
-    def test_internal_url_makes_no_outbound_request(self):
-        with mock.patch("tap_selligent.requests.get") as mock_get:
-            with self.assertRaises(ValueError):
-                t.request("http://169.254.169.254/sm/rest/v1/x/", CONFIG)
-        mock_get.assert_not_called()
 
 
 if __name__ == "__main__":
