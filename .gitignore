@@ -2,3 +2,4 @@ config.json
 persist.json
 __pycache__
 *.egg-info
+.venv
