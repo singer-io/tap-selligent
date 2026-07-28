@@ -13,7 +13,6 @@ logger = singer.get_logger()
 
 BASE_URL = 'https://backstage.taboola.com'
 
-
 def request(url, config, params={}):
     user_agent = config['user_agent']
     api_key = config['api_key']
@@ -28,13 +27,22 @@ def request(url, config, params={}):
                      'X-Organization': organization,
                      'Accept': 'application/json',
                      'User-Agent': user_agent},
-            params=params)
+            params=params,
+            allow_redirects=False)
 
     except BaseException as e:
         logger.exception(e)
         raise e
 
     logger.info("Got response code: {}".format(response.status_code))
+
+    # Redirects are not followed (allow_redirects=False) to prevent SSRF via a
+    # redirect to an internal address. raise_for_status() ignores 3xx, so reject
+    # it explicitly rather than letting response.json() fail on the redirect body.
+    if 300 <= response.status_code < 400:
+        raise RuntimeError(
+            "Refusing to follow redirect from {} to {}"
+            .format(url, response.headers.get('Location')))
 
     response.raise_for_status()
     return response
