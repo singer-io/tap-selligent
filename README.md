@@ -37,7 +37,9 @@ This tap:
  
     - `organization`, your Selligent organization name (looks like "Organization")
     - `api_key`, your API Key
-    - `base_url`, the base URL of your Selligent installation (looks like "https://organization.yourhost.com:443")
+        - `base_url`, the base URL of your Selligent installation (looks like "https://organization.yourhost.com:443")
+            - Redirects are only followed within the same origin and up to `max_redirects` hops.
+        - `max_redirects`, optional integer redirect limit (default `3`). Set to `0` to disable redirect following.
     - `user_agent`, the user-agent to set as a header on all requests made. Include your email address. (example: "tap-selligent (you@yourdomain.com)")
     - `start_date`, the date from which you want to sync data, in the format `2017-03-10`.
 

@@ -1,7 +1,8 @@
 {
     "organization": "",
-    "api_key": ""
+    "api_key": "",
     "base_url": "",
+    "max_redirects": 3,
     "start_date": "",
     "user_agent": ""
 }
